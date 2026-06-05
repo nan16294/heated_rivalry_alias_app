@@ -78,3 +78,9 @@ button { font: inherit; }
 .rules-card h2 { margin-top: 0; font-size: 34px; }
 .rules-card p { font-size: 17px; line-height: 1.45; }
 @media (min-width: 481px) { .screen { min-height: 860px; } }
+.round-screen,
+.play-screen {
+  background-size: cover !important;
+  background-position: center center !important;
+  background-repeat: no-repeat !important;
+}

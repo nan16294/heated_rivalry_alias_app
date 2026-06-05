@@ -187,7 +187,8 @@ function Play({ state, update }) {
   const [cardAnimation, setCardAnimation] = useState("");
   const startY = useRef(null);
   const activeTeam = state.teams[state.currentTeamIndex];
-  const word = state.words[state.wordIndex] || FALLBACK_WORDS[state.wordIndex % FALLBACK_WORDS.length];
+  const deck = state.words.length ? state.words : FALLBACK_WORDS;
+  const word = deck[state.wordIndex] || "Слова закончились";
 
   useEffect(() => {
     if (!running) return;
@@ -200,11 +201,17 @@ function Play({ state, update }) {
   }, [seconds]);
 
   const applyWordResult = (type) => {
+    const deck = state.words.length ? state.words : FALLBACK_WORDS;
+    const isLastWord = state.wordIndex >= deck.length - 1;
+    const nextDeckPatch = isLastWord ? { words: shuffle(deck), wordIndex: 0 } : { wordIndex: state.wordIndex + 1 };
+
     if (type === "guessed") {
-      const teams = state.teams.map((team, index) => index === state.currentTeamIndex ? { ...team, score: team.score + 1 } : team);
-      update({ teams, guessedThisRound: state.guessedThisRound + 1, wordIndex: state.wordIndex + 1 });
+      const teams = state.teams.map((team, index) =>
+        index === state.currentTeamIndex ? { ...team, score: team.score + 1 } : team
+      );
+      update({ teams, guessedThisRound: state.guessedThisRound + 1, ...nextDeckPatch });
     } else {
-      update({ skippedThisRound: state.skippedThisRound + 1, wordIndex: state.wordIndex + 1 });
+      update({ skippedThisRound: state.skippedThisRound + 1, ...nextDeckPatch });
     }
   };
 

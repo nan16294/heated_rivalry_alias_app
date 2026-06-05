@@ -10,11 +10,60 @@ function shuffle(array) {
   return [...array].sort(() => Math.random() - 0.5);
 }
 
+function extractWord(value) {
+  if (value === null || value === undefined) return "";
+  if (typeof value === "string" || typeof value === "number") return String(value).trim();
+
+  if (Array.isArray(value)) {
+    for (const item of value) {
+      const extracted = extractWord(item);
+      if (extracted) return extracted;
+    }
+    return "";
+  }
+
+  if (typeof value === "object") {
+    const preferredKeys = [
+      "words", "word", "Word", "WORDS", "text", "value",
+      "Слово", "слово", "Слова", "слова", "0"
+    ];
+
+    for (const key of preferredKeys) {
+      if (key in value) {
+        const extracted = extractWord(value[key]);
+        if (extracted) return extracted;
+      }
+    }
+
+    for (const item of Object.values(value)) {
+      const extracted = extractWord(item);
+      if (extracted) return extracted;
+    }
+  }
+
+  return "";
+}
+
 function normalizeWords(payload) {
-  if (Array.isArray(payload)) return payload.map(String).filter(Boolean);
-  if (Array.isArray(payload?.words)) return payload.words.map(String).filter(Boolean);
-  if (Array.isArray(payload?.data)) return payload.data.map((item) => String(item.words || item.word || item[0] || "")).filter(Boolean);
-  return [];
+  const source = Array.isArray(payload)
+    ? payload
+    : Array.isArray(payload?.words)
+      ? payload.words
+      : Array.isArray(payload?.data)
+        ? payload.data
+        : Array.isArray(payload?.rows)
+          ? payload.rows
+          : Array.isArray(payload?.items)
+            ? payload.items
+            : Array.isArray(payload?.result)
+              ? payload.result
+              : payload?.words
+                ? [payload.words]
+                : payload?.data
+                  ? [payload.data]
+                  : [payload];
+
+  return source.map(extractWord).filter(Boolean);
 }
 
 async function loadWordsFromWebhook() {
@@ -252,15 +301,17 @@ function Play({ state, update }) {
         <b>{state.guessedThisRound}</b>
         <span>угадано</span>
       </div>
-      {!running ? (
-        <button className="word-circle start-circle" onClick={() => setRunning(true)}>Старт</button>
-      ) : (
-        <div className="play-field">
-          <div className="swipe-hint">↑ Смахните вверх — угадано</div>
-          <button className={`word-circle ${cardAnimation ? `is-${cardAnimation}` : ""}`} onTouchStart={onTouchStart} onTouchEnd={onTouchEnd}>{word}</button>
-          <div className="swipe-hint muted-hint">Не знаешь слово — нажми «Пропуск»</div>
-        </div>
-      )}
+      <div className="play-main">
+        {!running ? (
+          <button className="word-circle start-circle" onClick={() => setRunning(true)}>Старт</button>
+        ) : (
+          <div className="play-field">
+            <div className="swipe-hint">↑ Смахните вверх — угадано</div>
+            <button className={`word-circle ${cardAnimation ? `is-${cardAnimation}` : ""}`} onTouchStart={onTouchStart} onTouchEnd={onTouchEnd}>{word}</button>
+            <div className="swipe-hint muted-hint">Не знаешь слово — нажми «Пропуск»</div>
+          </div>
+        )}
+      </div>
       <div className="play-stats bottom-stats">
         <span>пропущено</span>
         <b>{state.skippedThisRound}</b>

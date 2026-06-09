@@ -5,6 +5,7 @@ import { BACKGROUNDS, FALLBACK_WORDS, ROUND_SECONDS, WORDS_WEBHOOK_URL } from ".
 import "./styles.css";
 
 const STORAGE_KEY = "heated-rivalry-alias-state-v1";
+const WIN_SCORE = 40;
 
 function shuffle(array) {
   return [...array].sort(() => Math.random() - 0.5);
@@ -93,6 +94,7 @@ const defaultState = {
   guessedThisRound: 0,
   skippedThisRound: 0,
   savedGame: false,
+  winner: null,
 };
 
 function App() {
@@ -104,7 +106,7 @@ function App() {
   useEffect(() => {
     const safeState = { ...state, screen: "home", savedGame: true };
     localStorage.setItem(STORAGE_KEY, JSON.stringify(safeState));
-  }, [state.teams, state.currentTeamIndex, state.round, state.game, state.words, state.wordIndex]);
+  }, [state.teams, state.currentTeamIndex, state.round, state.game, state.words, state.wordIndex, state.winner]);
 
   const update = (patch) => setState((prev) => ({ ...prev, ...patch }));
   const resetGame = async () => {
@@ -120,6 +122,7 @@ function App() {
       guessedThisRound: 0,
       skippedThisRound: 0,
       savedGame: true,
+      winner: null,
     });
   };
 
@@ -129,6 +132,7 @@ function App() {
       {state.screen === "teams" && <Teams state={state} update={update} />}
       {state.screen === "round" && <RoundIntro state={state} update={update} />}
       {state.screen === "play" && <Play state={state} update={update} />}
+      {state.screen === "winner" && <Winner state={state} resetGame={resetGame} />}
       {state.screen === "how" && <HowToPlay update={update} />}
     </main>
   );
@@ -252,12 +256,27 @@ function Play({ state, update }) {
   const applyWordResult = (type) => {
     const deck = state.words.length ? state.words : FALLBACK_WORDS;
     const isLastWord = state.wordIndex >= deck.length - 1;
-    const nextDeckPatch = isLastWord ? { words: shuffle(deck), wordIndex: 0 } : { wordIndex: state.wordIndex + 1 };
+    const nextDeckPatch = isLastWord
+      ? { words: shuffle(deck), wordIndex: 0 }
+      : { wordIndex: state.wordIndex + 1 };
 
     if (type === "guessed") {
       const teams = state.teams.map((team, index) =>
         index === state.currentTeamIndex ? { ...team, score: team.score + 1 } : team
       );
+      const activeTeam = teams[state.currentTeamIndex];
+
+      if (activeTeam.score >= WIN_SCORE) {
+        update({
+          screen: "winner",
+          teams,
+          winner: activeTeam,
+          guessedThisRound: state.guessedThisRound + 1,
+          ...nextDeckPatch,
+        });
+        return;
+      }
+
       update({ teams, guessedThisRound: state.guessedThisRound + 1, ...nextDeckPatch });
     } else {
       update({ skippedThisRound: state.skippedThisRound + 1, ...nextDeckPatch });
@@ -321,6 +340,72 @@ function Play({ state, update }) {
         <button className="small-btn" onClick={() => setRunning((v) => !v)}>{running ? "Пауза" : "Старт"}</button>
         <div className="timer">{time}</div>
       </div>
+    </Screen>
+  );
+}
+
+function Winner({ state, resetGame }) {
+  const winner = state.winner;
+
+  return (
+    <Screen bg={BACKGROUNDS.round} className="round-screen">
+      <TopBar title="Победа" onBack={resetGame} />
+
+      <div
+        className="rules-card"
+        style={{
+          margin: "auto 0",
+          textAlign: "center",
+        }}
+      >
+        <h2 style={{ marginBottom: 12 }}>Победила</h2>
+
+        <div
+          style={{
+            fontSize: 42,
+            fontWeight: 900,
+            color: "var(--moss-dark)",
+            marginBottom: 26,
+          }}
+        >
+          {winner?.name || "Команда"}
+        </div>
+
+        <div style={{ textAlign: "left", display: "grid", gap: 12 }}>
+          <div
+            style={{
+              fontSize: 16,
+              textTransform: "uppercase",
+              letterSpacing: ".08em",
+              fontWeight: 900,
+              opacity: 0.7,
+            }}
+          >
+            Счёт
+          </div>
+
+          {state.teams.map((team) => (
+            <div
+              key={team.id}
+              style={{
+                display: "flex",
+                justifyContent: "space-between",
+                gap: 16,
+                fontSize: 22,
+                borderTop: "1px solid rgba(0,0,0,.12)",
+                paddingTop: 10,
+              }}
+            >
+              <span>{team.name}</span>
+              <strong>{team.score}</strong>
+            </div>
+          ))}
+        </div>
+      </div>
+
+      <button className="btn primary bottom" onClick={resetGame}>
+        Новая игра
+      </button>
     </Screen>
   );
 }
